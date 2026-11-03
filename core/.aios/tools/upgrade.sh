@@ -28,6 +28,7 @@ set -eu
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 [ -f .aios/VERSION ] || { echo "This folder is not an OakSpin AI-OS brain (no .aios/VERSION)."; exit 1; }
 . .aios/tools/kit_home.sh
+[ ! -f .aios/tools/python.sh ] || . .aios/tools/python.sh
 
 usage() {
   echo "usage: sh .aios/tools/upgrade.sh --check | --auto | --yes [--pin-key SHA256:...]"

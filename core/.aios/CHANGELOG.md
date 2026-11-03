@@ -3,6 +3,11 @@
 One plain-English entry per engine version, newest first. The updater reads the entry for the
 version it installs and tells the owner in one line what changed.
 
+## 0.1.2
+- Your brain now works on Windows computers. It finds Python under its Windows names, saves notes
+  in any language, and keeps your private folder off-limits however Windows writes its name.
+  Nothing changes on a Mac.
+
 ## 0.1.1
 - First signed OakSpin release. Nothing changes in how your brain works. From now on it checks
   for signed OakSpin updates when it opens and installs them.

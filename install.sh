@@ -62,6 +62,22 @@ if [ -z "$COMPANY" ] && (: < "$TTY") 2>/dev/null; then
   printf 'What is your business called? ' >&2
   IFS= read -r COMPANY < "$TTY" || COMPANY=""
 fi
+# Python names on Windows: the same block as core/.aios/tools/python.sh (see there; a test keeps them
+# equal), repeated because the brain does not exist yet. A Mac is left alone: running its python3
+# placeholder would open Apple's install window (see real_python below).
+# >>> python names
+aios_python_ok() { "$@" -c 'import sys; sys.exit(0 if sys.version_info >= (3,9) else 1)' >/dev/null 2>&1; }
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*) export PYTHONUTF8=1 ;;
+esac
+if [ "$(uname -s 2>/dev/null)" != Darwin ] && ! aios_python_ok python3; then
+  if aios_python_ok python; then
+    python3() { python "$@"; }
+  elif aios_python_ok py -3; then
+    python3() { py -3 "$@"; }
+  fi
+fi
+# <<< python names
 # Python is really installed (on a Mac without Apple's command line tools, /usr/bin/python3 is a
 # placeholder that opens an install window; the machine check below handles that, not this step).
 real_python() {
@@ -186,7 +202,10 @@ if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,9) else 1)' 2>
     xcode-select --install >/dev/null 2>&1 || true
     exit 0
   fi
-  missing="$missing\n- Python 3.9 or newer: install from https://python.org then paste the same line again."
+  case "$OS" in
+    MINGW*|MSYS*|CYGWIN*) missing="$missing\n- Python 3.9 or newer: install from https://python.org, tick \"Add python.exe to PATH\" on the first screen, then close this window, open a new one and paste the same line again." ;;
+    *) missing="$missing\n- Python 3.9 or newer: install from https://python.org then paste the same line again." ;;
+  esac
 fi
 if [ -n "$missing" ]; then
   printf 'Before the brain can be built:%b\n' "$missing"

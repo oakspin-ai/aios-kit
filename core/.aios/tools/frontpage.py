@@ -26,7 +26,7 @@ def fact_rows():
         path = ROOT / name
         if not path.exists():
             continue
-        for line in path.read_text().splitlines():
+        for line in path.read_text(encoding='utf-8').splitlines():
             m = ROW.match(line)
             if not m:
                 continue
@@ -59,7 +59,7 @@ def ready_for_review():
     drafts = sorted((p for p in folder.glob('*.md') if p.name != 'README.md'), key=lambda p: p.name, reverse=True)
     lines = []
     for p in drafts[:10]:
-        first = next((l.lstrip('# ').strip() for l in p.read_text().splitlines() if l.strip()), p.stem)
+        first = next((l.lstrip('# ').strip() for l in p.read_text(encoding='utf-8').splitlines() if l.strip()), p.stem)
         lines.append(f'- {first} (in the review folder as {p.name}).')
     if len(drafts) > 10:
         lines.append(f'- And {len(drafts) - 10} more in the review folder.')
@@ -100,13 +100,13 @@ def render():
 
 def main() -> int:
     readme = ROOT / 'README.md'
-    text = readme.read_text()
+    text = readme.read_text(encoding='utf-8')
     if BEGIN not in text or END not in text:
         print('README.md has no front page block; nothing changed.')
         return 1
     head, rest = text.split(BEGIN, 1)
     _, tail = rest.split(END, 1)
-    readme.write_text(head + render() + tail)
+    readme.write_text(head + render() + tail, encoding='utf-8')
     print('Front page updated.')
     return 0
 

@@ -6,6 +6,7 @@ set -u
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 . .aios/tools/kit_home.sh 2>/dev/null || { aios_kit_home() { return 1; }; aios_push() { git push "$@"; }; }
+[ ! -f .aios/tools/python.sh ] || . .aios/tools/python.sh
 # the same checked merge session start and fold.sh use; without it nothing from GitHub comes in here
 AIOS_FOLD_LIB=1
 . .aios/tools/fold.sh 2>/dev/null || aios_checked_merge() { return 2; }

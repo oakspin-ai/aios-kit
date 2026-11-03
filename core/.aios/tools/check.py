@@ -254,7 +254,7 @@ def check_onboarding() -> list:
     if not path.exists():
         return []
     try:
-        json.loads(path.read_text())
+        json.loads(path.read_text(encoding='utf-8'))
     except ValueError as err:
         return [f'memory/onboarding.json is not valid: {err}. The interview cannot resume until it is fixed.']
     return []

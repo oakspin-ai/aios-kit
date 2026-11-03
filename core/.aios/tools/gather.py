@@ -39,6 +39,7 @@ import datetime
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
 import struct
@@ -59,10 +60,20 @@ SKIP_DIRS = {'.git', 'node_modules', '__pycache__', '.Trash'}
 FOLDER_NOTE = 'ABOUT THIS FOLDER.md'
 
 
+def local_path(raw: str, windows: bool = os.name == 'nt') -> Path:
+    """A folder as this computer's Python names it. Git Bash on Windows writes C:\\Users\\ana as
+    /c/Users/ana, which Windows Python reads as a folder on the current drive, so the private-folder
+    guard below would never match. Both the folder asked for and the private folder go through here."""
+    m = re.match(r'/([A-Za-z])(?=/|$)', raw) if windows else None
+    if m:
+        raw = f'{m.group(1).upper()}:/' + raw[3:]
+    return Path(raw).expanduser()
+
+
 def private_folder() -> Path:
-    for line in (ROOT / 'aios.yml').read_text().splitlines():
+    for line in (ROOT / 'aios.yml').read_text(encoding='utf-8').splitlines():
         if line.startswith('private_folder:'):
-            return Path(line.split(':', 1)[1].strip()).expanduser()
+            return local_path(line.split(':', 1)[1].strip())
     return ROOT.parent / 'private'
 
 
@@ -606,7 +617,7 @@ def main(argv: list) -> int:
     if not argv or argv[0] in ('-h', '--help'):
         print(__doc__)
         return 2
-    folder = Path(argv[0]).expanduser().resolve()
+    folder = local_path(argv[0]).resolve()
     label = folder.name
     if '--label' in argv:
         label = argv[argv.index('--label') + 1]
@@ -627,19 +638,19 @@ def main(argv: list) -> int:
     receipts = ROOT / 'memory/receipts'
     receipts.mkdir(parents=True, exist_ok=True)
     seen_file = receipts / f'seen-{label}.json'
-    seen = json.loads(seen_file.read_text()) if seen_file.exists() else {}
+    seen = json.loads(seen_file.read_text(encoding='utf-8')) if seen_file.exists() else {}
     result = gather(folder, label, seen, protected)
-    seen_file.write_text(json.dumps(seen, indent=2, sort_keys=True) + '\n')
+    seen_file.write_text(json.dumps(seen, indent=2, sort_keys=True) + '\n', encoding='utf-8')
     # saved in the brain: only kept files are named; what stayed behind is counted
     receipt = {'date': today, 'folder': str(folder), 'label': label, 'kept': result['kept'],
                'looked_at_before': len(result['looked_at_before']), 'screened_out': len(result['screened_out']),
                'unscreened': len(result['unscreened']), 'skipped': len(result['skipped'])}
-    (receipts / f'gather-{label}-{now:%Y-%m-%d-%H%M%S}.json').write_text(json.dumps(receipt, indent=2) + '\n')
+    (receipts / f'gather-{label}-{now:%Y-%m-%d-%H%M%S}.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
 
     if result['screened_out']:
         note = private_folder() / 'screened-out.md'
         note.parent.mkdir(parents=True, exist_ok=True)
-        with note.open('a') as f:
+        with note.open('a', encoding='utf-8') as f:
             f.write(f'\n## {today}: screened out of "{label}" ({folder})\n\n')
             f.write('These files were not copied into the brain and were not read by the AI. Each one looked like it held something that must not go in the brain. They are still where they were.\n\n')
             for item in result['screened_out']:

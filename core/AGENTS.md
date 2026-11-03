@@ -66,6 +66,10 @@ skills in `.agents/skills/`; if one is not recognised, run the playbook of the s
 `.aios/playbooks/`. The company's own skills (voice first) are plain files: read `skills/README.md`, then
 open the matching `.claude/skills/<name>/SKILL.md`.
 
+**On Windows.** Run every `python3` command in this brain and its playbooks with `PYTHONUTF8=1` in
+front (`PYTHONUTF8=1 python3 ...`). Where this computer has no working `python3`, use `python`, or
+`py -3` if `python` is missing too. The automatic saves and checks already do both on their own.
+
 **Questions need no command.** The owner asks in plain words, in any window. Answer only from the
 files, say where the answer came from, flag anything unconfirmed, and say "I do not have that yet"
 rather than guess.

@@ -72,6 +72,7 @@ if [ "${AIOS_FOLD_LIB:-}" != 1 ]; then
   fail() { echo "$1"; exit 1; }
   cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || exit 1
   . .aios/tools/kit_home.sh 2>/dev/null || { aios_kit_home() { return 1; }; aios_push() { git push "$@"; }; }
+  [ ! -f .aios/tools/python.sh ] || . .aios/tools/python.sh
   answer=${1:-} branch=${2:-} sha=${3:-}
   case "$answer" in --yes|--no) ;; *) fail "usage: fold.sh --yes BRANCH SHA | --no BRANCH" ;; esac
   [ -n "$branch" ] || fail "usage: fold.sh --yes BRANCH SHA | --no BRANCH"
