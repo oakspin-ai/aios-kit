@@ -1,0 +1,240 @@
+{
+  "version": "0.1.0",
+  "ceiling_minutes": 30,
+  "usable_by_minute": 15,
+  "rules": [
+    "The 'say' lines are written to sound warm, direct, short, with contractions and no jargon. Say them close to word for word and keep that tone in everything you add; do not stiffen them into formal English. Anything you draft for the owner to send uses the owner's voice, not this one.",
+    "One question at a time. Wait for the answer before asking the next.",
+    "Write each answer to its file immediately with source=owner, date=today, status=confirmed, and say where it went in plain words.",
+    "Questions fill holes; they are not how facts get in. Before every question, look for rows that already answer it (from the website, the web, the documents, email, Drive, calendar or meetings). If one does, do not ask it cold: read it back as a question ('Your quotes say X. Still right?'). Ask in full only what nothing answered, and skip a question when the owner has already confirmed its answer.",
+    "Update memory/onboarding.json after every section so a dropped session resumes at the same place.",
+    "If the owner hesitates or says 'skip', mark the section skipped and move on. Never push.",
+    "Never claim to know anything that is not written to a file with a status.",
+    "At the reveal, read back confirmed facts as facts and imported or inferred facts as questions."
+  ],
+  "sections": [
+    {
+      "id": "welcome",
+      "title": "Hello",
+      "say": "Hey! I'm your OakSpin AI-OS. Right now I know nothing about %%COMPANY%%, and that changes fast. I read what you've already got first: your website, then any files and accounts you want to share. Then I only ask about what's missing. It all lands in plain files you own, and you can stop any time and pick it back up. Don't type, talk: hit the microphone in the message box and ramble. I'll sort it out. Ready?",
+      "writes": []
+    },
+    {
+      "id": "website",
+      "title": "Your website first",
+      "say": "Let's start with your website. I'll read it, plus what the rest of the web says about %%COMPANY%%, so I'm not asking you stuff that's already out there.",
+      "questions": [
+        "What's your website address? No website is fine: just say 'no website' and we'll start with your files instead."
+      ],
+      "consent": "Here's what I'll read: the public pages on your site, fifteen at most (home, services, prices, about, team, locations, FAQs, reviews, contact). Then I'll search the web for %%COMPANY%% by name and read up to five public pages about you on other sites, like a Google or Yelp listing, a directory, or a news story. I won't log in, fill in a form, or open anything behind a password. Everything I find stays marked as from your website or the web until you confirm it. Good to go?",
+      "then": "Write every fact found as source=website <page> or source=web <page>, status=imported; web facts never overwrite website facts, and a disagreement between them goes to the gaps. Then say what you found in three or four plain sentences, and list the gaps: each later question neither answered, plus anything that looks out of date or contradicts itself. Save the gaps to memory/onboarding.json#gaps. Then go straight to what stays out and the documents folder, before the first job and before any question. If a site blocks you, never try to get around it: name it and say 'Open it in your browser and I'll read it there, or save it as a PDF (File, Print, Save as PDF) and drop it in.'",
+      "writes": [
+        "company/identity.md",
+        "company/services.md",
+        "company/customers.md",
+        "company/people.md",
+        "memory/onboarding.json#gaps"
+      ]
+    },
+    {
+      "id": "privacy",
+      "title": "What stays out",
+      "say": "Before I pull anything in, here's the deal on what I take and what I don't. I'll read what you put in your documents folder and whatever you point me at in the accounts you connect: price lists, spreadsheets, invoices, the emails and folders you pick, your calendar, meeting notes, a chat export. Your business numbers are welcome: sales, costs, margins, what's owed. That's how I get useful. What I won't keep: bank or card numbers, passwords, ID numbers, or anything personal. Payroll and what people get paid is your call; I'll ask before I keep it. If I spot a password or card number, I stop and tell you.",
+      "questions": [
+        "Is there anything else that must never go in here, including anything I took from your website? Say it now and I will write the rule, and remove it if I already saved it."
+      ],
+      "writes": [
+        "company/access.md"
+      ]
+    },
+    {
+      "id": "uploads",
+      "title": "Fill the rooms",
+      "say": "Now your files, so your first job gets built on your real stuff. Easiest way: drag your business files or whole folders right into this chat, or click the + under the message box and pick them, then hit Enter. Send as much as you've got. I copy it all into your documents folder and sort it from there. No files handy? All good, just say so and we keep rolling.",
+      "asks": [
+        {
+          "room": "Documents",
+          "ask": "First, a quick check. Before you add any file (PDF, Word, spreadsheet, notes), make sure it has none of these: bank or card numbers, account or routing numbers, passwords or logins, tax, social security or ID numbers, staff home addresses or personal phone numbers, health details. Business money is fine: sales, costs, prices, margins, invoices. If one does, delete that part or black it out and save a new copy, or leave the file out. My checker catches passwords, card and bank numbers in text, Word, spreadsheet and PDF files, but not every ID number or personal detail, and it can't read photos or scans of paper, so give each file a quick look. Then drag your files or folders into this chat, or click the + under the message box and choose them, and hit Enter: price lists, brochures, proposals and quotes, how-we-do-it notes, meeting notes, a ChatGPT or Claude export. Send as much as you've got, as many times as you like. Copies are fine; the originals stay where they are.",
+          "folder": "documents_folder in aios.yml",
+          "status": "imported",
+          "privacy_check": "Before you add any file (PDF, Word, spreadsheet, notes), make sure it has none of these: bank or card numbers, account or routing numbers, passwords or logins, tax, social security or ID numbers, staff home addresses or personal phone numbers, health details. Business money is fine: sales, costs, prices, margins, invoices. If one does, delete that part or black it out and save a new copy, or leave the file out. My checker catches passwords, card and bank numbers in text, Word, spreadsheet and PDF files, but not every ID number or personal detail, and it can't read photos or scans of paper, so give each file a quick look."
+        }
+      ],
+      "writes": [
+        "company/services.md",
+        "company/identity.md",
+        "clients/",
+        "memory/imported/"
+      ]
+    },
+    {
+      "id": "first_job",
+      "title": "Your first real job, in a few minutes",
+      "say": "Let's knock out one real job for %%COMPANY%% right now, from what I just read, so you see me work before I ask you much. Something like a follow-up to a customer who went quiet, this week's short blog post, or your price list as one clean page. Pick one, or tell me yours.",
+      "offer_rules": [
+        "Agree one job with the owner. Suggest from what the website, the web look-up and the documents found; if the owner names their own, take it if it is right-sized, and if not, offer the nearest version that is.",
+        "No website and no documents: ask two quick questions first (what do you sell, and one customer you are dealing with right now), then suggest from those answers. If either one gave you enough, ask nothing.",
+        "Right-sized means finished in under five minutes as one draft the owner can use today. Examples: a follow-up email to a customer who asked for a quote and went quiet; this week's short blog or social post from one service; the price list or services page as one clean page; a reply to the question customers ask most; a thank-you to a customer who left a review.",
+        "Never agree to anything that runs over days, touches money or needs an account: no invoicing, no chasing every client, no sending, no posting, no campaigns. Say why in one line and offer the smaller version.",
+        "Write the draft in the voice the website uses (or the owner's spoken words) until the owner's own voice is learned, and say so in one line.",
+        "Draft only. Save it to inbox/review/ and say where. Nothing is sent or published."
+      ],
+      "then": "Show the finished draft. Ask one question: 'Would you use this?' Write the answer to memory/onboarding.json#first_job. Then go on to connecting the owner's accounts, before any question.",
+      "writes": [
+        "inbox/review/",
+        "memory/onboarding.json#first_job"
+      ]
+    },
+    {
+      "id": "connectors",
+      "title": "Connect your accounts",
+      "say": "Now the places your business lives online. Each one's your call. Straight up: when you connect email, Drive or calendar, Claude can read and also send or change things there. There's no read-only setting. What I actually do is up to you, on your permissions page. To start, I only read, and I ask before I send or change anything. When you trust me with a job, say 'you can always do that' and I'll add it, and every action I take gets logged where you can check it. Spending money, deleting stuff and your bank are never on the list. You connect them in Claude's settings under Connectors, and I'll walk you through each click.",
+      "questions": [
+        "GitHub: is your private online copy connected yet? If not, we do it now: it is the backup and what links your phone. (yes, or let's do it)",
+        "Email: connect it? Then name the customers or threads I should read, or say 'the last few weeks with customers'. I summarise; I never copy a whole email in. (yes or no)",
+        "Google Drive or OneDrive: connect it? Then name the folders I should read. I cannot screen those files for private numbers first, so I read out every file name and read only the ones you say yes to. (yes or no)",
+        "Calendar: connect it? I read the last month and the next two weeks: who you meet and how often. (yes or no)",
+        "Meeting recorder: which one, if any? Connect it and I read the summaries of your last few meetings with customers. (yes or no)"
+      ],
+      "then": "After each yes, read only what the owner chose, write what you find as source=<account> <item>, status=imported, seed a client folder for each business that appears, and cross off anything it answers in memory/onboarding.json#gaps. Then say in two or three plain sentences what you found and what is still missing. The questions that follow are only those gaps.",
+      "writes": [
+        "company/tools.md",
+        "company/services.md",
+        "company/customers.md",
+        "clients/",
+        "memory/imported/",
+        "memory/onboarding.json#gaps"
+      ]
+    },
+    {
+      "id": "tidy",
+      "title": "Tidy-up check",
+      "say": "Before I ask you anything, a quick tidy-up. Every business has a bit of mess in its files: the same customer twice, two prices for one thing, an old reminder nobody deleted. Here's what I found. Tell me which is right and I'll fix the brain.",
+      "checks": [
+        "Read for the mechanical ones: the same email or phone on two customer rows, one item with two prices, files that look like old copies.",
+        "Then read for the judgement ones, across everything read so far: a price, discount or term that differs between files (the approved or newest one wins; a draft, scratchpad or older file is history, and say which file said what); money that does not line up (a reminder for an invoice already paid, a payment claimed but not matched, an invoice past due); promises past their date; customer dates that clash with supplier or stock dates."
+      ],
+      "rules": [
+        "Raise each as a short question with the files it came from, one line each, most costly first. Never decide for the owner.",
+        "Write each answer at once: the confirmed value as confirmed, the loser kept as history with its source. The store, accounting or CRM system stays the master for its own records; say so when the real fix belongs there.",
+        "Do not turn this into a lecture: at most eight items; offer the rest as a list for later."
+      ],
+      "writes": [
+        "company/*.md",
+        "clients/",
+        "memory/follow-ups.md",
+        "memory/onboarding.json#tidy"
+      ]
+    },
+    {
+      "id": "voice",
+      "title": "Your voice, your first skill",
+      "say": "Now your voice, so everything I draft sounds like you and not like a robot. I build it from a few real samples of you writing and talking, and it becomes your first skill: every email, quote and post I draft uses it. Already got a voice guide or saved voice instructions from ChatGPT or Claude? Paste it or drop it in. I'll start from it and sharpen it with your real samples.",
+      "asks": [
+        "A few emails you wrote yourself: two or three to customers, and one or two to a colleague or a friend, so I hear both sides of you. Point me at them in your connected email, or drag them in.",
+        "Something where you talk: a recorded meeting in your meeting recorder, or notes or a transcript from a Zoom call where you did a lot of the talking. Only your own words get used.",
+        "Anything longer you wrote: a blog post, a newsletter, a LinkedIn post, your About page.",
+        "A voice guide or voice instructions you already use, if you have one."
+      ],
+      "rules": [
+        "Use what the gather and the accounts already brought in first (sent email, the owner's lines in this business's meetings, posts), then ask only for the kinds of sample still missing. Five written and one or two spoken is plenty; take what they have.",
+        "From meetings, use only the owner's own lines, and only from meetings about this business.",
+        "Samples written to friends or colleagues teach style only: never file their content, and quote at most a few words.",
+        "With an existing voice guide: keep what the samples confirm, flag in one line anything the samples contradict, and add what it is missing (openings, sign-offs, saying no, spoken habits).",
+        "Write the result to .claude/skills/voice/SKILL.md from .aios/templates/voice.md, with a row per sample in 'Where this came from'. Then read the voice back in four or five plain lines.",
+        "Test it straight away: draft one real message from the follow-up list in this voice. Ask 'Does this sound like you? What would you change?' Fix .claude/skills/voice/SKILL.md once from the answer and write the date and the correction under 'Checked with the owner'."
+      ],
+      "writes": [
+        ".claude/skills/voice/SKILL.md",
+        "skills/README.md",
+        "memory/onboarding.json#voice"
+      ]
+    },
+    {
+      "id": "identity",
+      "title": "Who you are",
+      "say": "Now just the stuff your website, files and accounts didn't tell me. Anything I found, I'll read back to you as a question.",
+      "questions": [
+        "In one or two sentences, what does %%COMPANY%% do, and for whom?",
+        "Who runs it, and who else works in it? Names and what each person owns."
+      ],
+      "writes": [
+        "company/identity.md",
+        "company/people.md"
+      ]
+    },
+    {
+      "id": "offer",
+      "title": "What you sell",
+      "questions": [
+        "List what you sell. For each: the name, roughly what it costs, and how it is priced (fixed, hourly, monthly, per job).",
+        "Which one makes the most money? Which one do you wish sold more?"
+      ],
+      "writes": [
+        "company/services.md"
+      ]
+    },
+    {
+      "id": "customers",
+      "title": "Who buys",
+      "questions": [
+        "Who is your best kind of customer? Describe one real one without naming them if you prefer.",
+        "How do most new customers find you today?",
+        "Name up to five clients or prospects you are dealing with right now. For each, one line on where things stand."
+      ],
+      "writes": [
+        "company/customers.md",
+        "clients/"
+      ]
+    },
+    {
+      "id": "week",
+      "title": "A normal week",
+      "questions": [
+        "Walk me through a normal week. Where does your time go?",
+        "Which tools run the business: email, calendar, CRM, invoicing, project tracking? For each, is it the system of record for something (customers, money, schedule)?"
+      ],
+      "writes": [
+        "company/identity.md",
+        "company/tools.md"
+      ]
+    },
+    {
+      "id": "pain",
+      "title": "What you wish you did not have to do",
+      "questions": [
+        "What are three things you do every week but wish you did not have to, or that eat time they should not?",
+        "For each, what does a good result look like, and what does it cost you today when it goes wrong?"
+      ],
+      "writes": [
+        "memory/onboarding.json#pain"
+      ]
+    },
+    {
+      "id": "reveal",
+      "title": "Here is your business as I understand it",
+      "say": "Here's your business the way I understand it. Anything you told me, I say straight. Anything I pulled in or guessed gets a question mark: tell me yes, no, or fix it, and I'll update it before we keep going.",
+      "writes": [
+        "company/*.md status updates"
+      ]
+    },
+    {
+      "id": "skills",
+      "title": "Your next three skills",
+      "say": "Your voice is skill number one. You also told me three things you wish you didn't have to do. I've set each one up as a job I can do for you, in your voice, named the way you said it. Pick one and we'll run it right now on something real.",
+      "writes": [
+        ".claude/skills/",
+        "skills/README.md"
+      ]
+    },
+    {
+      "id": "done",
+      "title": "Done for today",
+      "say": "Saved. Boom. Here's what I know, what I can do for you today, and three things to try this week. The guide's there any time. Saving happens on its own. Before you close a chat, say 'remember what we learned' so what you decided gets written down.",
+      "writes": [
+        "memory/onboarding.json#complete",
+        "README.md#today"
+      ]
+    }
+  ]
+}

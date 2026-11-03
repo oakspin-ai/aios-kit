@@ -1,0 +1,10 @@
+# Written by install.sh. Machine-readable manifest of this brain.
+company: "%%COMPANY%%"
+slug: %%SLUG%%
+engine: %%ENGINE_VERSION%%
+harness: claude-code
+installed: YYYY-MM-DD
+private_folder: %%PRIVATE%%
+industry: %%INDUSTRY%%     # the industry pack installed with this brain, or none
+upgrade: auto          # auto: the engine keeps itself current | ask: the owner is asked first (anything else means ask)
+verify: signed         # signed: only engines signed by OakSpin's pinned key install | none: unsigned test install, never auto-updated

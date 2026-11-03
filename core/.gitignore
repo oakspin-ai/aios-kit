@@ -1,0 +1,12 @@
+# Nothing private belongs in this repository; the private folder lives outside it.
+.env
+.env.*
+*.env
+.DS_Store
+inbox/quarantine/*
+!inbox/quarantine/README.md
+# Python cache files the engine's tools leave behind
+__pycache__/
+*.pyc
+# local stamps, never shared
+memory/receipts/upgrade-check.json

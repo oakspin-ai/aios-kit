@@ -1,0 +1,14 @@
+# Where this relationship stands now. Update it in the same save as every ledger row.
+stage: prospect          # prospect | client | partner | past
+company: "<Client name>"
+contact: "<Name>"
+contact_channel: "<email | phone | text>"
+value: 0                 # expected or recurring amount, if known
+status_updated: YYYY-MM-DD
+status_source: "<what the owner said, or the document>"
+status_confidence: confirmed   # confirmed | imported | inferred
+last_touch: YYYY-MM-DD
+next_action: "<the single next step>"
+next_action_due: YYYY-MM-DD
+waiting_on: ""           # who owes the next move, when it is theirs; clear it when the ball comes back
+note: "<one line>"

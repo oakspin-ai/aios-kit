@@ -1,0 +1,17 @@
+.agents/skills/client/SKILL.md
+.agents/skills/learned/SKILL.md
+.agents/skills/meeting/SKILL.md
+.agents/skills/save/SKILL.md
+.agents/skills/start/SKILL.md
+.agents/skills/teach/SKILL.md
+.agents/skills/upgrade/SKILL.md
+.agents/skills/week/SKILL.md
+.claude/commands/client.md
+.claude/commands/learned.md
+.claude/commands/meeting.md
+.claude/commands/save.md
+.claude/commands/start.md
+.claude/commands/teach.md
+.claude/commands/upgrade.md
+.claude/commands/week.md
+.claude/settings.json
