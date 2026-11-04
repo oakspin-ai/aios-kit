@@ -1,7 +1,7 @@
 {
-  "latest": "0.1.2",
-  "tag": "v0.1.2",
-  "sha256": "d33e67397d18067ba2b7b29f5705dafea30edad76541e586fa9ac5b362b19a0a",
-  "published": "2026-11-03",
-  "brain_commit": "75bc823"
+  "latest": "0.1.3",
+  "tag": "v0.1.3",
+  "sha256": "557362be4c71588f490b30478eef33bc5bfa2bd597eff3e154dfcd6776e6b612",
+  "published": "2026-11-04",
+  "brain_commit": "b991344"
 }

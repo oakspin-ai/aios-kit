@@ -5,14 +5,31 @@
 set -u
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+# A save from another device that was being brought in when the app closed is left half done: saving
+# now would record it unfinished (clash markers and all). Stop and say so; nothing is lost.
+if git rev-parse -q --verify MERGE_HEAD >/dev/null || [ -n "$(git diff --name-only --diff-filter=U 2>/dev/null)" ]; then
+  echo "Not saved: bringing in a save from another device was interrupted and is not finished, so nothing is saved until it is sorted out. Nothing was lost. Tell OakSpin."
+  exit 0
+fi
 . .aios/tools/kit_home.sh 2>/dev/null || { aios_kit_home() { return 1; }; aios_push() { git push "$@"; }; }
 [ ! -f .aios/tools/python.sh ] || . .aios/tools/python.sh
 # the same checked merge session start and fold.sh use; without it nothing from GitHub comes in here
 AIOS_FOLD_LIB=1
-. .aios/tools/fold.sh 2>/dev/null || aios_checked_merge() { return 2; }
+. .aios/tools/fold.sh 2>/dev/null || { aios_checked_merge() { return 2; }; aios_join_main() { return 0; }; aios_git() { git "$@"; }; }
+# GitHub's main line moved too (a save made on GitHub itself, or on another computer): join it, checked,
+# before pushing, so the two never wait on each other. 0 go ahead and push, 1 stop (it said why).
+join_github() {
+  git remote get-url origin >/dev/null 2>&1 && ! aios_kit_home || return 0
+  git fetch -q origin main 2>/dev/null || return 0
+  aios_join_main
+}
 branch=$(git branch --show-current 2>/dev/null || echo main)
 if [ -z "$(git status --porcelain)" ] && [ "$branch" = main ]; then
-  # nothing new locally; still push anything unpushed
+  # nothing new locally; still join GitHub's main line and push anything unpushed
+  if ! join_github; then
+    echo "Saved on this computer only, not yet backed up to GitHub."
+    exit 0
+  fi
   git remote get-url origin >/dev/null 2>&1 && { aios_push -q origin main 2>/dev/null || true; }
   exit 0
 fi
@@ -75,12 +92,16 @@ if [ "$branch" != main ]; then
       git merge -q --ff-only origin/main 2>/dev/null || keep_branch "GitHub's main line and this copy both moved, so it was not folded here."
     fi
   fi
-  if ! git merge -q --no-edit "$branch" 2>/dev/null; then
+  if ! aios_git merge -q --no-edit "$branch" 2>/dev/null; then
     git merge --abort 2>/dev/null
     keep_branch "It could not be folded into main automatically."
   fi
   git branch -q -D "$branch" 2>/dev/null
   git remote get-url origin >/dev/null 2>&1 && { aios_push -q origin --delete "$branch" 2>/dev/null || true; }
+fi
+if [ "$branch" = main ] && ! join_github; then
+  echo "Saved on this computer only, not yet backed up to GitHub."
+  exit 0
 fi
 if git remote get-url origin >/dev/null 2>&1; then
   if aios_kit_home; then

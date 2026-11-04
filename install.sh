@@ -184,6 +184,9 @@ need() { command -v "$1" >/dev/null 2>&1; }
 
 say "Checking the machine"
 OS=$(uname -s 2>/dev/null || echo unknown)
+case "$OS" in MINGW*|MSYS*|CYGWIN*) WINDOWS=1 ;; *) WINDOWS=0 ;; esac
+# A folder as the owner's computer names it: C:\Users\ana\... on Windows, where Git Bash says /c/Users/ana/...
+shown() { if [ "$WINDOWS" = 1 ] && need cygpath; then cygpath -w "$1" 2>/dev/null || printf '%s' "$1"; else printf '%s' "$1"; fi; }
 missing=""
 # Git and Python: on a Mac both arrive with Apple's command line tools, one prompt.
 if ! need git; then
@@ -226,13 +229,16 @@ else HARNESS=claude; fi
 if [ "$HARNESS" = claude ] && ! need claude && [ "${AIOS_INSTALL_CLAUDE:-1}" = 1 ]; then
   if need npm; then
     echo "Installing Claude Code (one minute)."
-    npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 && echo "Claude Code installed." || echo "Could not install Claude Code automatically. Get it at https://claude.ai/code and paste the same line again when it is in."
+    npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 && echo "Claude Code installed." || echo "Could not install Claude Code automatically. The brain is still built: get Claude at https://claude.ai/code, then open the brain folder in it."
+  elif [ "$WINDOWS" = 1 ]; then
+    # Anthropic's Windows installer is a PowerShell command, and the Claude desktop app has Claude Code built in.
+    echo "Claude Code comes with the Claude desktop app: open the brain in its Code tab when this finishes."
   elif [ "$OS" = Darwin ] && need brew; then
     echo "Installing Claude Code (one minute)."
-    brew install --quiet node >/dev/null 2>&1 && npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 && echo "Claude Code installed." || echo "Could not install Claude Code automatically. Get it at https://claude.ai/code and paste the same line again when it is in."
+    brew install --quiet node >/dev/null 2>&1 && npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 && echo "Claude Code installed." || echo "Could not install Claude Code automatically. The brain is still built: get Claude at https://claude.ai/code, then open the brain folder in it."
   elif need curl; then
     echo "Installing Claude Code with Anthropic's installer (one minute)."
-    curl -fsSL https://claude.ai/install.sh | bash >/dev/null 2>&1 && echo "Claude Code installed." || echo "Could not install Claude Code automatically. Get it at https://claude.ai/code and paste the same line again when it is in."
+    curl -fsSL https://claude.ai/install.sh | bash >/dev/null 2>&1 && echo "Claude Code installed." || echo "Could not install Claude Code automatically. The brain is still built: get Claude at https://claude.ai/code, then open the brain folder in it."
   else
     echo "Claude Code is not installed yet. The brain will still be built. Get Claude Code at https://claude.ai/code, then open the brain folder and type /start."
   fi
@@ -346,7 +352,7 @@ PY
   [ $? -eq 0 ] || { unplace; return 1; }
 }
 
-say "Creating the brain at $DEST"
+say "Creating the brain at $(shown "$DEST")"
 if [ "$EXISTING" = 1 ]; then
   echo "Already exists; keeping it. Nothing in it was checked or replaced now."
 elif [ -n "${AIOS_SOURCE:-}" ]; then
@@ -432,7 +438,7 @@ EOF
 fi
 grep -q '^documents_folder:' aios.yml || printf 'documents_folder: %s\n' "$DOCUMENTS" >> aios.yml
 
-say "Making the private folder outside the brain: $PRIVATE"
+say "Making the private folder outside the brain: $(shown "$PRIVATE")"
 mkdir -p "$PRIVATE"
 [ -f "$PRIVATE/README.md" ] || cat > "$PRIVATE/README.md" <<EOF
 # $COMPANY private folder
@@ -442,7 +448,7 @@ have not chosen to share, personal matters, and payroll if you want it kept out:
 backed up by the brain; back it up the way you back up any private document.
 EOF
 
-say "Making the documents folder: $DOCUMENTS"
+say "Making the documents folder: $(shown "$DOCUMENTS")"
 mkdir -p "$DOCUMENTS"
 [ -f "$DOCUMENTS/ABOUT THIS FOLDER.md" ] || cat > "$DOCUMENTS/ABOUT THIS FOLDER.md" <<EOF
 # Documents for the $COMPANY brain
@@ -474,6 +480,11 @@ say "Wiring the checks"
 chmod +x scripts/setup.sh .aios/hooks/pre-commit .aios/tools/check.py .aios/tools/gather.py .aios/tools/frontpage.py
 chmod +x .aios/tools/*.py .aios/tools/*.sh .aios/hooks/*.sh 2>/dev/null || true
 ./scripts/setup.sh
+
+# Git needs a name and email for every save, and a new computer often has none (Git for Windows always
+# asks). Where this computer's Git has none, the brain gets the business name, as its first save uses.
+git config user.name >/dev/null 2>&1 || git config --local user.name "${GIT_AUTHOR_NAME:-$COMPANY}"
+git config user.email >/dev/null 2>&1 || git config --local user.email "${GIT_AUTHOR_EMAIL:-owner@$SLUG.local}"
 
 say "First save"
 git add -A
@@ -508,13 +519,14 @@ say "Install receipt"
 mkdir -p memory
 printf -- '- %s installed OakSpin AI-OS %s on this machine (harness: %s, private folder: %s, engine verified: %s)\n' \
   "$TODAY" "$ENGINE" "$(if [ "$HARNESS" = codex ]; then echo codex; elif need claude; then echo claude-code; else echo none-yet; fi)" "$PRIVATE" "$([ -n "$KEY_FP" ] && echo "yes, key $KEY_FP" || echo "no, unsigned test install")" >> memory/install-receipts.md
-git add memory/install-receipts.md && git commit -q -m "Install receipt $TODAY" 2>/dev/null || true
+git add memory/install-receipts.md && git commit -q -m "Install receipt $TODAY" >/dev/null 2>&1 \
+  || echo "The install receipt is written but not saved yet; the next save records it."
 fi
 
 say "Done."
-echo "Your brain: $DEST"
-echo "Private folder (never read by the brain): $PRIVATE"
-echo "Documents folder (put the files you want the brain to know here): $DOCUMENTS"
+echo "Your brain: $(shown "$DEST")"
+echo "Private folder (never read by the brain): $(shown "$PRIVATE")"
+echo "Documents folder (put the files you want the brain to know here): $(shown "$DOCUMENTS")"
 echo "Talk, do not type: click the microphone in your AI app's message box and speak your answers."
 if [ "$HARNESS" = codex ]; then
   # Codex has no session hooks: say so, and start the interview in Codex when it is installed.
@@ -533,10 +545,12 @@ elif { [ -n "${CLAUDECODE:-}" ] || [ "${AIOS_NO_LAUNCH:-0}" = 1 ]; } && [ -n "${
   echo "NEXT, FOR CLAUDE: read AGENTS.md in this folder, then run .aios/playbooks/start.md now, starting with the greeting. The owner does not need to open anything."
 elif [ -n "${CLAUDECODE:-}" ] || [ "${AIOS_NO_LAUNCH:-0}" = 1 ]; then
   # Claude itself ran this (desktop app or CLI). Do not start a second Claude inside it.
-  echo "NEXT STEP FOR THE OWNER: in Claude, open the folder $DEST and say hello (or type /start). The interview begins there."
+  echo "NEXT STEP FOR THE OWNER: in Claude, open the folder $(shown "$DEST") and say hello (or type /start). The interview begins there."
 elif need claude; then
   echo "Opening the interview."
   exec claude "/start"
+elif [ "$WINDOWS" = 1 ]; then
+  echo "Next: open the Claude desktop app, go to its Code tab, choose the folder $(shown "$DEST"), and say hello (or type /start)."
 else
   echo "Install Claude Code, open $DEST, and type /start."
 fi

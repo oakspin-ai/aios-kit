@@ -13,8 +13,10 @@
 # 3. Keep the engine current: at most once a day, ask the updater. With "upgrade: auto" it installs
 #    a newer signed engine when the tree is clean; with "upgrade: ask" (or no setting) it only says
 #    one is available. The updater itself decides; this hook never installs anything.
-# Quiet when there is nothing to do. Never touches a dirty tree or a session not on main, and never
-# pushes to OakSpin's public kit (see .aios/tools/kit_home.sh).
+# 0. First, save what the last session left unsaved: the Claude app can quit before its session-end
+#    save runs. It goes through the same checks as any save (autosave.sh).
+# Quiet when there is nothing to do. Never pulls into a tree with unsaved work or a session not on
+# main, and never pushes to OakSpin's public kit (see .aios/tools/kit_home.sh).
 set -u
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || exit 0
 . .aios/tools/kit_home.sh 2>/dev/null || { aios_kit_home() { return 1; }; aios_push() { git push "$@"; }; }
@@ -41,14 +43,19 @@ if git rev-parse -q --verify refs/remotes/origin/main >/dev/null && ! git merge-
     # everyday saves still go through the same check as a fold before main moves
     aios_checked_merge origin/main
     case $? in
-      0) git merge --abort 2>/dev/null
-         if git merge-base --is-ancestor main origin/main; then
+      0) if git merge-base --is-ancestor main origin/main; then
+           git merge --abort 2>/dev/null
            git merge -q --ff-only origin/main 2>/dev/null || echo "Could not pull the latest saves from GitHub. Working with the local copy."
+         elif aios_commit "Bring in saves from GitHub's main line" >/dev/null; then
+           aios_push -q origin main 2>/dev/null && echo "Brought in the latest saves from GitHub and joined them with the saves made here." \
+             || echo "Brought in the latest saves from GitHub and joined them with the saves made here. Could not push yet; it pushes at the next save."
          else
-           echo "Your GitHub copy and this computer both have new saves. Run /save to bring them together."
+           git merge --abort 2>/dev/null || git reset -q --hard main
+           echo "Could not join the latest saves from GitHub with the saves made here: the save could not be recorded. Tell OakSpin."
            return 0
          fi ;;
-      1) echo "Could not pull the latest saves from GitHub: they change the same lines as this copy. Run /save and read the message."; return 0 ;;
+      1) echo "Could not pull the latest saves from GitHub: they change the same lines as this copy. Tell OakSpin."; return 0 ;;
+      3) echo "Could not pull the latest saves from GitHub. Git said: ${AIOS_MERGE_ERROR:-nothing}. Tell OakSpin."; return 0 ;;
       *) echo "Not pulled: the latest saves on GitHub hold something that must not go in the brain. Fix it on the device that saved it."; return 0 ;;
     esac
   else
@@ -98,6 +105,15 @@ keep_engine_current() {
   [ -z "$log" ] || printf '%s\n' "$log"
 }
 
+save_leftovers() {
+  [ "$(git branch --show-current 2>/dev/null)" = main ] || return 0
+  [ -n "$(git status --porcelain)" ] || return 0
+  [ -f .aios/hooks/autosave.sh ] || return 0
+  echo "Saving work that was not saved yet:"
+  sh .aios/hooks/autosave.sh 2>&1 | grep -v '^brain check passed$' || true
+}
+
+save_leftovers
 sync_from_other_devices
 keep_engine_current
 [ -f .aios/tools/pipeline.py ] && python3 .aios/tools/pipeline.py --age 2>&1 || true

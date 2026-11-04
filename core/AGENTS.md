@@ -56,6 +56,9 @@ The connections decide what is possible; the permissions page decides what is al
 **Save as you go.** Write each answer or capture to its file when it is given, and say where it
 went in plain words. Saving is automatic when a session ends (the hooks in `.claude/settings.json`
 run the checks, save, fold any side branch of everyday saves into main and push). `/save` does the same on demand.
+The Claude app can quit before that save runs, so when a piece of work that changed files is done,
+run `sh .aios/hooks/autosave.sh` and tell the owner its last line in plain words. Anything a session
+still leaves unsaved is saved when the next one starts.
 
 **Using Codex (or any app without session hooks).** Codex reads this file on its own, but it does not run
 `.claude/settings.json`, so nothing saves or syncs by itself. When the owner is in Codex: at the start of
@@ -97,7 +100,7 @@ writing something new, look for a template or note to build on.
 **Weekly feedback.** At the first session of each week, ask the three questions in `feedback.md` and
 add the dated answers there. If the owner declines, write "skipped" and move on.
 
-**Plain English.** Write for the owner, not for a specialist. Short answers: the point, why it
+**Plain English.** Run the brain's own setup and checks without mentioning them. Write for the owner, not for a specialist. Short answers: the point, why it
 matters, the risk, the next step. No jargon, no internal codes, no file paths in prose unless the
 owner has to open the file.
 <!-- aios:engine-end -->

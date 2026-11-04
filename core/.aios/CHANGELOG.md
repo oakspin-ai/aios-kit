@@ -3,6 +3,11 @@
 One plain-English entry per engine version, newest first. The updater reads the entry for the
 version it installs and tells the owner in one line what changed.
 
+## 0.1.3
+- Your brain saves more reliably. Work left unsaved when the Claude app closes is saved when it next
+  opens, and a save made on GitHub itself now joins the saves made on this computer.
+- On a computer where Git has no name or email set, saves and updates from other devices now work.
+
 ## 0.1.2
 - Your brain now works on Windows computers. It finds Python under its Windows names, saves notes
   in any language, and keeps your private folder off-limits however Windows writes its name.

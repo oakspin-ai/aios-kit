@@ -12,17 +12,27 @@
 # goes through the same secret check as a save. session-start.sh sources this file for aios_fold
 # and aios_held (AIOS_FOLD_LIB=1), so there is one way in.
 
+aios_git() {  # git, naming the owner when this computer's Git has no name or email (a new computer
+  # often has none, and Git then refuses to merge or save)
+  git -c user.name="${GIT_AUTHOR_NAME:-$(git config user.name || echo owner)}" \
+      -c user.email="${GIT_AUTHOR_EMAIL:-$(git config user.email || echo owner@brain.local)}" "$@"
+}
+
 aios_checked_merge() {  # $1 ref. Stage what $1 brings into main and run the secret check on it.
   # 0 staged and clean (commit or abort next); 1 it changes the same lines as this copy; 2 it holds a
-  # secret, or the check could not run. On 1 or 2 main and the working copy are left as they were.
+  # secret, or the check could not run; 3 Git could not merge here for another reason
+  # (AIOS_MERGE_ERROR holds Git's own words). On 1, 2 or 3 main and the working copy are left as they were.
   # The check runs from a copy of this brain's engine taken before the merge, so a save that changes
   # the checker (or the industry checks) is judged by the checker it would replace.
   trusted=$(mktemp -d) || return 2
   if ! cp -R .aios "$trusted/.aios" 2>/dev/null; then rm -rf "$trusted"; return 2; fi
-  if ! git merge -q --no-ff --no-commit "$1" 2>/dev/null; then
+  if ! out=$(aios_git merge -q --no-ff --no-commit "$1" 2>&1); then
+    clashes=$(git diff --name-only --diff-filter=U 2>/dev/null)
     git merge --abort 2>/dev/null || git reset -q --hard main
     rm -rf "$trusted"
-    return 1
+    [ -n "$clashes" ] && return 1
+    AIOS_MERGE_ERROR=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
+    return 3
   fi
   if ! AIOS_BRAIN_ROOT="$(pwd)" PYTHONDONTWRITEBYTECODE=1 python3 "$trusted/.aios/tools/check.py" --staged; then
     git merge --abort 2>/dev/null || git reset -q --hard main
@@ -34,10 +44,37 @@ aios_checked_merge() {  # $1 ref. Stage what $1 brings into main and run the sec
 }
 
 aios_commit() {  # $1 message. Fails (and says why) when the save could not be recorded.
-  if ! out=$(git -c user.name="${GIT_AUTHOR_NAME:-$(git config user.name || echo owner)}" \
-      -c user.email="${GIT_AUTHOR_EMAIL:-$(git config user.email || echo owner@brain.local)}" \
-      commit -q -m "$1" 2>&1); then
+  if ! out=$(aios_git commit -q -m "$1" 2>&1); then
     printf '%s\n' "$out"
+    return 1
+  fi
+}
+
+aios_join_main() {  # Bring GitHub's main line into main, checked, when both have moved (a save made on
+  # GitHub itself, or on another computer, while this one saved too). 0 joined or nothing to join;
+  # 1 not joined, and it says why. A change to how the brain works still waits for the owner's yes.
+  theirs=$(git rev-parse -q --verify refs/remotes/origin/main) || return 0
+  git merge-base --is-ancestor "$theirs" main 2>/dev/null && return 0
+  if ! python3 .aios/tools/wiring.py main "$theirs" >/dev/null 2>&1; then
+    echo "GitHub's main line has saves waiting for your yes, so they were not brought in. The next session on this computer names them."
+    return 1
+  fi
+  aios_checked_merge "$theirs" >/dev/null
+  case $? in
+    0) ;;
+    1) echo "GitHub's main line and this computer changed the same lines, so they were not joined. Tell OakSpin."; return 1 ;;
+    2) echo "GitHub's main line holds something that must not go in the brain, so it was not brought in. Fix it on the device that saved it."; return 1 ;;
+    *) echo "Git could not join GitHub's main line here. Git said: ${AIOS_MERGE_ERROR:-nothing}. Tell OakSpin."; return 1 ;;
+  esac
+  if git merge-base --is-ancestor main "$theirs"; then
+    git merge --abort 2>/dev/null
+    git merge -q --ff-only "$theirs" 2>/dev/null && return 0
+    echo "Could not bring in GitHub's main line. Tell OakSpin."
+    return 1
+  fi
+  if ! aios_commit "Bring in saves from GitHub's main line" >/dev/null; then
+    git merge --abort 2>/dev/null || git reset -q --hard main
+    echo "GitHub's main line could not be joined here: the save could not be recorded. Tell OakSpin."
     return 1
   fi
 }
@@ -47,6 +84,8 @@ aios_fold() {  # $1 remote ref (origin/x), $2 branch name. 0 folded, 1 not.
   case $? in
     1) echo "Could not fold the save from another device ('$2') automatically: it changes the same lines as this copy. Run /save and read the message."; return 1 ;;
     2) echo "Not folded: the save from another device ('$2') holds something that must not go in the brain. Fix it on that device, then start again."; return 1 ;;
+    0) ;;
+    *) echo "Not folded: Git could not bring in the save from another device ('$2') here. Git said: ${AIOS_MERGE_ERROR:-nothing}. Tell OakSpin."; return 1 ;;
   esac
   if ! aios_commit "Fold save from another device ($2)"; then
     git merge --abort 2>/dev/null || git reset -q --hard main
@@ -106,6 +145,8 @@ if [ "${AIOS_FOLD_LIB:-}" != 1 ]; then
     case $? in
       1) fail "Nothing changed: the saves waiting on GitHub's main line change the same lines as a save on this computer, so they cannot come in on their own. They stay held. Tell OakSpin." ;;
       2) fail "Nothing changed: the saves waiting on GitHub's main line hold something that must not go in the brain. They stay out. Tell OakSpin." ;;
+      0) ;;
+      *) fail "Nothing changed: Git could not bring in the saves waiting on GitHub's main line here. Git said: ${AIOS_MERGE_ERROR:-nothing}. They stay held. Tell OakSpin." ;;
     esac
     if git merge-base --is-ancestor main "$now"; then
       git merge --abort 2>/dev/null
