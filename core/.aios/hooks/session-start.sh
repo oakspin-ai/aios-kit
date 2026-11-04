@@ -14,7 +14,8 @@
 #    a newer signed engine when the tree is clean; with "upgrade: ask" (or no setting) it only says
 #    one is available. The updater itself decides; this hook never installs anything.
 # 0. First, save what the last session left unsaved: the Claude app can quit before its session-end
-#    save runs. It goes through the same checks as any save (autosave.sh).
+#    save runs. It goes through the same checks as any save (autosave.sh), and joins GitHub's main
+#    line as any save does; if that join failed, step 1 does not try it again.
 # Quiet when there is nothing to do. Never pulls into a tree with unsaved work or a session not on
 # main, and never pushes to OakSpin's public kit (see .aios/tools/kit_home.sh).
 set -u
@@ -23,7 +24,7 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || exit 0
 [ ! -f .aios/tools/python.sh ] || . .aios/tools/python.sh
 AIOS_FOLD_LIB=1
 # without the fold tool nothing folds; held saves are still named, and the updater can repair it
-. .aios/tools/fold.sh 2>/dev/null || { aios_fold() { echo "Not folded: the save from another device ('$2') waits until the brain's engine is whole again."; return 1; }
+. .aios/tools/fold.sh 2>/dev/null || { aios_fetch() { git fetch -q "$@" 2>/dev/null; }; aios_fold() { echo "Not folded: the save from another device ('$2') waits until the brain's engine is whole again."; return 1; }
   aios_held() { echo "Waiting for your yes: a save from another device ('$1', $2) changes how the brain itself works:"; printf '%s\n' "$3"; }; }
 yml_value() { sed -n "s/^$1:[[:space:]]*//p" aios.yml 2>/dev/null | head -1 | sed 's/#.*//; s/["'"'"' 	]//g' | tr -d '\r' | tr '[:upper:]' '[:lower:]'; }
 
@@ -36,10 +37,12 @@ fi
 [ "$(git branch --show-current 2>/dev/null)" = main ] || return 0
 [ -z "$(git status --porcelain)" ] || return 0
 
-git fetch -q --prune origin 2>/dev/null || { echo "Could not reach GitHub for the latest saves. Working with the local copy."; return 0; }
+aios_fetch --prune origin || { echo "Could not reach GitHub for the latest saves. Working with the local copy."; return 0; }
 # GitHub's main line has saves this copy does not: bring them in only if they are everyday content
 if git rev-parse -q --verify refs/remotes/origin/main >/dev/null && ! git merge-base --is-ancestor origin/main main 2>/dev/null; then
   if changes=$(python3 .aios/tools/wiring.py main origin/main 2>&1); then
+    # the leftover save just above tried this same join and said why it could not
+    [ "$leftovers_not_joined" = 1 ] && return 0
     # everyday saves still go through the same check as a fold before main moves
     aios_checked_merge origin/main
     case $? in
@@ -110,9 +113,12 @@ save_leftovers() {
   [ -n "$(git status --porcelain)" ] || return 0
   [ -f .aios/hooks/autosave.sh ] || return 0
   echo "Saving work that was not saved yet:"
-  sh .aios/hooks/autosave.sh 2>&1 | grep -v '^brain check passed$' || true
+  out=$(sh .aios/hooks/autosave.sh 2>&1 | grep -v '^brain check passed$')
+  printf '%s\n' "$out"
+  case $out in *"Saved on this computer only"*) leftovers_not_joined=1 ;; esac
 }
 
+leftovers_not_joined=0
 save_leftovers
 sync_from_other_devices
 keep_engine_current

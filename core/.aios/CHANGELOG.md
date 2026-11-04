@@ -3,6 +3,12 @@
 One plain-English entry per engine version, newest first. The updater reads the entry for the
 version it installs and tells the owner in one line what changed.
 
+## 0.1.4
+- Saves from GitHub come in reliably when the Claude app opens, even while the app is checking
+  GitHub at the same moment.
+- When two devices each add a decision, an action or a filed meeting to the brain's logs, both are
+  kept instead of stopping to ask OakSpin.
+
 ## 0.1.3
 - Your brain saves more reliably. Work left unsaved when the Claude app closes is saved when it next
   opens, and a save made on GitHub itself now joins the saves made on this computer.

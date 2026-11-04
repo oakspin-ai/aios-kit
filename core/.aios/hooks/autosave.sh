@@ -15,12 +15,13 @@ fi
 [ ! -f .aios/tools/python.sh ] || . .aios/tools/python.sh
 # the same checked merge session start and fold.sh use; without it nothing from GitHub comes in here
 AIOS_FOLD_LIB=1
-. .aios/tools/fold.sh 2>/dev/null || { aios_checked_merge() { return 2; }; aios_join_main() { return 0; }; aios_git() { git "$@"; }; }
+. .aios/tools/fold.sh 2>/dev/null || { aios_checked_merge() { return 2; }; aios_join_main() { return 0; }; aios_git() { git "$@"; }
+  aios_fetch() { git fetch -q "$@" 2>/dev/null; }; aios_union_logs() { :; }; }
 # GitHub's main line moved too (a save made on GitHub itself, or on another computer): join it, checked,
 # before pushing, so the two never wait on each other. 0 go ahead and push, 1 stop (it said why).
 join_github() {
   git remote get-url origin >/dev/null 2>&1 && ! aios_kit_home || return 0
-  git fetch -q origin main 2>/dev/null || return 0
+  aios_fetch origin main || return 0
   aios_join_main
 }
 branch=$(git branch --show-current 2>/dev/null || echo main)
@@ -83,7 +84,7 @@ if [ "$branch" != main ]; then
   }
   git checkout -q main 2>/dev/null || git checkout -q -b main
   if git remote get-url origin >/dev/null 2>&1 && ! aios_kit_home; then
-    git fetch -q origin main 2>/dev/null || keep_branch "GitHub could not be reached, so it was not folded into main."
+    aios_fetch origin main || keep_branch "GitHub could not be reached, so it was not folded into main."
     if git rev-parse -q --verify refs/remotes/origin/main >/dev/null && ! git merge-base --is-ancestor origin/main main; then
       python3 .aios/tools/wiring.py main origin/main >/dev/null 2>&1 || keep_branch "GitHub's main line has saves waiting for your yes, so this one waits with them."
       # everyday saves on GitHub's main still go through the check before main moves here
@@ -92,6 +93,7 @@ if [ "$branch" != main ]; then
       git merge -q --ff-only origin/main 2>/dev/null || keep_branch "GitHub's main line and this copy both moved, so it was not folded here."
     fi
   fi
+  aios_union_logs
   if ! aios_git merge -q --no-edit "$branch" 2>/dev/null; then
     git merge --abort 2>/dev/null
     keep_branch "It could not be folded into main automatically."

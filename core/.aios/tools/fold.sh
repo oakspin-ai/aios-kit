@@ -18,12 +18,37 @@ aios_git() {  # git, naming the owner when this computer's Git has no name or em
       -c user.email="${GIT_AUTHOR_EMAIL:-$(git config user.email || echo owner@brain.local)}" "$@"
 }
 
+aios_fetch() {  # git fetch, quiet. The Claude app downloads from GitHub when a session opens too; the
+  # second of two downloads finds GitHub's line locked and gives up, so a locked line is tried up to
+  # three times in all
+  n=0
+  while ! out=$(git fetch -q "$@" 2>&1); do
+    n=$((n + 1))
+    [ "$n" -lt 3 ] && printf '%s' "$out" | grep -q 'lock' || return 1
+    sleep 1
+  done
+}
+
+aios_union_logs() {  # Logs that only ever gain rows keep both sides' rows when two devices each added
+  # one, instead of clashing. Set in this computer's own Git (.git/info/attributes), never in a save.
+  # A row corrected here while another device adds one keeps both, so these logs are corrected by
+  # adding a row, never by editing one (AGENTS.md).
+  attrs=$(git rev-parse --git-path info/attributes 2>/dev/null) || return 0
+  grep -qs '^# aios logs 1$' "$attrs" && return 0
+  mkdir -p "$(dirname "$attrs")" || return 0
+  # never glue the block onto a last line someone left without its newline
+  [ ! -s "$attrs" ] || [ -z "$(tail -c 1 "$attrs")" ] || echo >> "$attrs"
+  printf '%s\n' '# aios logs 1' 'memory/decisions.md merge=union' \
+    'memory/actions.md merge=union' 'memory/filed-meetings.md merge=union' 'memory/install-receipts.md merge=union' >> "$attrs"
+}
+
 aios_checked_merge() {  # $1 ref. Stage what $1 brings into main and run the secret check on it.
   # 0 staged and clean (commit or abort next); 1 it changes the same lines as this copy; 2 it holds a
   # secret, or the check could not run; 3 Git could not merge here for another reason
   # (AIOS_MERGE_ERROR holds Git's own words). On 1, 2 or 3 main and the working copy are left as they were.
   # The check runs from a copy of this brain's engine taken before the merge, so a save that changes
   # the checker (or the industry checks) is judged by the checker it would replace.
+  aios_union_logs
   trusted=$(mktemp -d) || return 2
   if ! cp -R .aios "$trusted/.aios" 2>/dev/null; then rm -rf "$trusted"; return 2; fi
   if ! out=$(aios_git merge -q --no-ff --no-commit "$1" 2>&1); then
@@ -119,7 +144,7 @@ if [ "${AIOS_FOLD_LIB:-}" != 1 ]; then
   aios_kit_home && fail "This folder's GitHub copy is OakSpin's public kit, not your brain. Nothing was changed. Tell OakSpin."
   [ "$(git branch --show-current 2>/dev/null)" = main ] || fail "Nothing changed: this copy is not on the main line. Start a session on the main computer and answer there."
   [ -z "$(git status --porcelain)" ] || fail "Nothing changed: there is unsaved work here. Save first (/save), then answer again."
-  git fetch -q --prune origin 2>/dev/null || fail "Nothing changed: could not reach GitHub. Try again when online."
+  aios_fetch --prune origin || fail "Nothing changed: could not reach GitHub. Try again when online."
   now=$(git rev-parse -q --verify "refs/remotes/origin/$branch") || fail "There is no save called '$branch' on GitHub any more. Nothing changed."
 
   if [ "$answer" = --no ]; then

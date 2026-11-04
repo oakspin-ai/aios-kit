@@ -21,6 +21,8 @@ records disagree, keep both and ask.
 
 **One home per fact.** Present state lives in `company/` and each client's `meta.yml`. Dated
 history lives in `ledger.md` files and `memory/`. Do not copy a fact into a second place; link it.
+The logs in `memory/` (`decisions.md`, `actions.md`, `filed-meetings.md`, `install-receipts.md`) only
+gain rows: to correct a row, add a new one that says what changed. Never edit or delete an old row.
 
 **Private stays outside.** The owner-only folder lives outside this repository (see
 `company/access.md`). Never read it, index it, summarise it or ask for its contents. Anything the
