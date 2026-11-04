@@ -1,6 +1,6 @@
 # AI-OS kit
 
-Version 0, created 2026-10-29; engine 0.1.1 (`core/.aios/VERSION`). Not yet installed for anyone.
+Created 2026-10-29; the engine's version is in `core/.aios/VERSION`. Runs on Mac and on Windows 10/11 (in Git Bash).
 This is what OakSpin installs as a design partner's own private brain repository: one shared core
 plus one industry pack. Offer terms live in [services](../../company/services.md); this kit grants
 no install, send or spend authority.
@@ -29,15 +29,16 @@ of the pack's `rules.md` under "Industry rules" in the brain's `rules.md`, and w
 Design-partner installs follow [playbooks/aios-install.md](../../playbooks/aios-install.md), which lives
 in the brain, not the kit, so the release never publishes it.
 
-`AIOS_DEV=1` is needed until the first release is published (below). It marks the brain
-`verify: none`: it takes no engine update until the owner confirms OakSpin's key fingerprint once,
-and says so at every session start.
+`AIOS_DEV=1` installs from a local copy without a signed release (OakSpin's tests). It marks the
+brain `verify: none`: it takes no engine update until the owner confirms OakSpin's key fingerprint
+once, and says so at every session start. A partner's brain installs from a signed release (below).
 
 The core assumes Claude Code (it edits files, runs git and uses session hooks); Codex works with
 manual saves (`core/AGENTS.md`). ChatGPT is unverified; see [open questions](../../company/open-questions.md).
 
-## Releases and updates: set up, nothing published
-Status 2026-10-30: release signing is set up (owner's decision); no release is published yet.
+## Releases and updates
+Signed releases are published to [oakspin-ai/aios-kit](https://github.com/oakspin-ai/aios-kit), one tag
+per engine version (`v0.1.1` was the first, 2026-11-03). Its `releases.json` names the latest one.
 
 1. **Public kit repository:** [oakspin-ai/aios-kit](https://github.com/oakspin-ai/aios-kit), named
    in both `core/.aios/release.conf` (`repo=`) and `install.sh` (`KIT_REPO=`); a test checks they match.
@@ -52,22 +53,21 @@ Status 2026-10-30: release signing is set up (owner's decision); no release is p
    only, with Contents read and write. It is made when the first release is published and is never
    stored in Git.
 
-Before the first publish:
-- Approve the ownership note and the guide's support wording. The release copies everything this
-  folder tracks except each pack's `evidence.md` and `onboarding.md`: OakSpin's own intelligence,
-  kept here and never published (owner's decision, 2026-10-30; `PRIVATE` in `tools/aios_release.py`).
-- Publish a version newer than 0.1.0 (bump `core/.aios/VERSION`). Brains installed by hand today are
-  0.1.0 with `verify: none`; they move to signed updates only through a newer release.
-- Give customers the install line the release tool prints. It checks the installer's own SHA-256
-  before running it, because the installer runs before it can check any signature; a plain
-  `curl ... | sh` would run whatever the public repository holds.
+Each release:
+- Copies everything this folder tracks except each pack's `evidence.md` and `onboarding.md`:
+  OakSpin's own intelligence, kept here and never published (owner's decision, 2026-10-30;
+  `PRIVATE` in `tools/aios_release.py`).
+- Needs a newer `core/.aios/VERSION` and its entry in `core/.aios/CHANGELOG.md`. Any change in this
+  folder makes `--check` report the published kit out of date until the next release.
+- Prints the install line customers get. It checks the installer's own SHA-256 before running it,
+  because the installer runs before it can check any signature; a plain `curl ... | sh` would run
+  whatever the public repository holds.
 
 `python3 tools/aios_release.py` signs and publishes the kit at its version, and each brain's
 updater (`core/.aios/tools/upgrade.sh`) installs only a newer kit whose release list is signed by
 the pinned key and whose files match the list's digest, replacing `.aios/` and the pack's engine
-files and leaving the owner's files alone. Until the first publish, the updater finds no release
-list and changes nothing, and the one-line install says the list is not published yet and builds
-no brain (it may already have installed Claude Code, which it does first).
+files and leaving the owner's files alone. A brain checks for a newer release at most once a day, when a
+session starts; with no release list it changes nothing.
 
 ## Tests
 `tests/test_aios_*.py` and `tests/test_patient_data_guard.py`. They install throwaway brains in

@@ -3,6 +3,9 @@
 One plain-English entry per engine version, newest first. The updater reads the entry for the
 version it installs and tells the owner in one line what changed.
 
+## 0.1.5
+- Nothing changes in how your brain works. OakSpin's notes about the kit are brought up to date.
+
 ## 0.1.4
 - Saves from GitHub come in reliably when the Claude app opens, even while the app is checking
   GitHub at the same moment.
