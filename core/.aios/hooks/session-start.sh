@@ -37,7 +37,10 @@ fi
 [ "$(git branch --show-current 2>/dev/null)" = main ] || return 0
 [ -z "$(git status --porcelain)" ] || return 0
 
-aios_fetch --prune origin || { echo "Could not reach GitHub for the latest saves. Working with the local copy."; return 0; }
+aios_fetch --prune origin || {
+  # a refused login was already named; anything else gives Git's own reason
+  [ "${AIOS_LOGIN_SEEN:-0}" = 1 ] || { r=$(aios_git_reason 2>/dev/null); echo "Could not reach GitHub for the latest saves${r:+ ($r)}. Working with the local copy."; }
+  return 0; }
 # GitHub's main line has saves this copy does not: bring them in only if they are everyday content
 if git rev-parse -q --verify refs/remotes/origin/main >/dev/null && ! git merge-base --is-ancestor origin/main main 2>/dev/null; then
   if changes=$(python3 .aios/tools/wiring.py main origin/main 2>&1); then
@@ -69,6 +72,9 @@ if git rev-parse -q --verify refs/remotes/origin/main >/dev/null && ! git merge-
 fi
 
 folded=0
+# a side branch folded here is removed from GitHub only once GitHub's main holds it, so the save is
+# never on this computer alone
+pending=""
 # branch names only: GitHub's HEAD pointer (origin/HEAD, short name "origin") is not a save
 for branch in $(git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/origin | grep -v -e '^main$' -e '^HEAD$'); do
   # a branch name is written by whoever saved it: an unusual one is never folded or repeated here
@@ -77,19 +83,31 @@ for branch in $(git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/ori
     continue
   fi
   ref=origin/$branch
-  # already in main? then only the leftover branch needs removing
+  # already in main? then only the leftover branch needs removing, once GitHub's main holds it too
   if git merge-base --is-ancestor "$ref" main 2>/dev/null; then
-    aios_push -q origin --delete "$branch" 2>/dev/null || true
+    if git rev-parse -q --verify refs/remotes/origin/main >/dev/null && git merge-base --is-ancestor "$ref" refs/remotes/origin/main 2>/dev/null; then
+      aios_push -q origin --delete "$branch" 2>/dev/null || true
+    else
+      pending="$pending $branch"
+    fi
     continue
   fi
   if ! changes=$(python3 .aios/tools/wiring.py main "$ref" 2>&1); then
     aios_held "$branch" "$(git rev-parse --short=12 "$ref")" "$changes"
     continue
   fi
-  aios_fold "$ref" "$branch" && folded=$((folded + 1))
+  if aios_fold "$ref" "$branch"; then
+    folded=$((folded + 1))
+    pending="$pending $branch"
+  fi
 done
-if [ "$folded" -gt 0 ]; then
-  aios_push -q origin main 2>/dev/null && echo "Brought in $folded save(s) from another device." || echo "Brought in $folded save(s) from another device. Could not push to GitHub yet; it will push at the next save."
+if [ -n "$pending" ]; then
+  if aios_push -q origin main 2>/dev/null; then
+    for branch in $pending; do aios_push -q origin --delete "$branch" 2>/dev/null || true; done
+    if [ "$folded" -gt 0 ]; then echo "Brought in $folded save(s) from another device."; fi
+  elif [ "$folded" -gt 0 ]; then
+    echo "Brought in $folded save(s) from another device. Could not push to GitHub yet; it will push at the next save."
+  fi
 fi
 }
 

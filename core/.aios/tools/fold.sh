@@ -21,11 +21,14 @@ aios_git() {  # git, naming the owner when this computer's Git has no name or em
 aios_fetch() {  # git fetch, quiet. The Claude app downloads from GitHub when a session opens too; the
   # second of two downloads finds GitHub's line locked and gives up, so a locked line is tried up to
   # three times in all
+  # three times in all. A final failure keeps Git's words in AIOS_GIT_ERR and names a refused login.
   n=0
   while ! out=$(git fetch -q "$@" 2>&1); do
     n=$((n + 1))
-    [ "$n" -lt 3 ] && printf '%s' "$out" | grep -q 'lock' || return 1
-    sleep 1
+    if [ "$n" -lt 3 ] && printf '%s' "$out" | grep -q 'lock'; then sleep 1; continue; fi
+    AIOS_GIT_ERR=$out
+    ! command -v aios_github_tell >/dev/null 2>&1 || aios_github_tell "$out" || true
+    return 1
   done
 }
 
@@ -117,7 +120,7 @@ aios_fold() {  # $1 remote ref (origin/x), $2 branch name. 0 folded, 1 not.
     echo "Not folded: the save from another device ('$2') could not be recorded here. It stays on GitHub."
     return 1
   fi
-  aios_push -q origin --delete "$2" 2>/dev/null || true
+  # the caller removes '$2' from GitHub once its push of main has succeeded
   return 0
 }
 
@@ -193,6 +196,7 @@ if [ "${AIOS_FOLD_LIB:-}" != 1 ]; then
   git merge-base --is-ancestor origin/main main 2>/dev/null || fail "Nothing changed: answer the saves waiting on GitHub's main line first."
   aios_fold "origin/$branch" "$branch" || exit 1
   if git remote get-url origin >/dev/null 2>&1 && aios_push -q origin main 2>/dev/null; then
+    aios_push -q origin --delete "$branch" 2>/dev/null || true
     echo "Brought in the save from another device ('$branch') and backed it up to GitHub."
   else
     echo "Brought in the save from another device ('$branch'). Could not push to GitHub yet; it will push at the next save."

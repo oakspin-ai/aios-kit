@@ -181,6 +181,35 @@ fi
 
 say() { printf '\n== %s\n' "$*"; }
 need() { command -v "$1" >/dev/null 2>&1; }
+# The Claude desktop app has Claude Code built in. AIOS_CLAUDE_APP names the one place to look (tests).
+claude_app() {
+  if [ -n "${AIOS_CLAUDE_APP:-}" ]; then [ -d "$AIOS_CLAUDE_APP" ]; return; fi
+  [ -d /Applications/Claude.app ] || [ -d "$HOME/Applications/Claude.app" ]
+}
+# npm or Homebrew installed by another account (a shared Mac's admin) cannot install for this one.
+npm_can_install() {
+  p=$(npm prefix -g 2>/dev/null) && [ -n "$p" ] || return 1
+  for d in "$p/lib/node_modules" "$p/node_modules" "$p/lib"; do
+    if [ -d "$d" ]; then [ -w "$d" ]; return; fi
+  done
+  # a global folder npm has not made yet (a first install on Windows): npm makes it where it can write
+  d=$p
+  while [ ! -e "$d" ]; do up=$(dirname "$d"); [ "$up" != "$d" ] || return 1; d=$up; done
+  [ -d "$d" ] && [ -w "$d" ]
+}
+brew_can_install() { p=$(brew --prefix 2>/dev/null) && [ -n "$p" ] && [ -w "$p" ]; }
+# An Intel build of GitHub's tool on an Apple silicon Mac runs, but cannot run the Mac's own Git, so it
+# can neither make the GitHub copy nor give Git its login (Mac test, 2026-11-05).
+gh_wrong_build() {
+  [ "$OS" = Darwin ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = 1 ] || return 1
+  build=$(file -bL "$(command -v gh)" 2>/dev/null) || return 1
+  case "$build" in *arm64*) return 1 ;; *x86_64*) return 0 ;; esac
+  return 1
+}
+# The cause in a tool's error: its first fatal: or error: line (Git adds advice after it), else its last line.
+last_line() {
+  { printf '%s\n' "$1" | grep -iE -m1 '^(fatal|error):' || printf '%s\n' "$1" | sed '/^[[:space:]]*$/d' | tail -1; } | cut -c1-300
+}
 
 say "Checking the machine"
 OS=$(uname -s 2>/dev/null || echo unknown)
@@ -227,18 +256,29 @@ else HARNESS=claude; fi
 # Claude Code: install it if we can, otherwise say exactly where to get it.
 # AIOS_INSTALL_CLAUDE=0 skips this (the kit's tests use it so they never download anything).
 if [ "$HARNESS" = claude ] && ! need claude && [ "${AIOS_INSTALL_CLAUDE:-1}" = 1 ]; then
-  if need npm; then
+  if [ "$OS" = Darwin ] && claude_app; then
+    echo "Claude Code comes with the Claude desktop app: open the brain in its Code tab when this finishes."
+  elif need npm && npm_can_install; then
     echo "Installing Claude Code (one minute)."
     npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 && echo "Claude Code installed." || echo "Could not install Claude Code automatically. The brain is still built: get Claude at https://claude.ai/code, then open the brain folder in it."
   elif [ "$WINDOWS" = 1 ]; then
     # Anthropic's Windows installer is a PowerShell command, and the Claude desktop app has Claude Code built in.
     echo "Claude Code comes with the Claude desktop app: open the brain in its Code tab when this finishes."
-  elif [ "$OS" = Darwin ] && need brew; then
+  elif [ "$OS" = Darwin ] && need brew && brew_can_install; then
     echo "Installing Claude Code (one minute)."
     brew install --quiet node >/dev/null 2>&1 && npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 && echo "Claude Code installed." || echo "Could not install Claude Code automatically. The brain is still built: get Claude at https://claude.ai/code, then open the brain folder in it."
   elif need curl; then
     echo "Installing Claude Code with Anthropic's installer (one minute)."
-    curl -fsSL https://claude.ai/install.sh | bash >/dev/null 2>&1 && echo "Claude Code installed." || echo "Could not install Claude Code automatically. The brain is still built: get Claude at https://claude.ai/code, then open the brain folder in it."
+    # downloaded first, then run, then found: a failed download piped into bash would look like a success.
+    # Only into a private file mktemp makes: a fixed name in a shared folder could be planted by another account.
+    if cc_script=$(mktemp 2>/dev/null) && [ -n "$cc_script" ] \
+        && curl -fsSL https://claude.ai/install.sh -o "$cc_script" 2>/dev/null && [ -s "$cc_script" ] \
+        && bash "$cc_script" >/dev/null 2>&1 && { need claude || [ -x "$HOME/.local/bin/claude" ]; }; then
+      echo "Claude Code installed."
+    else
+      echo "Could not install Claude Code automatically. The brain is still built: get Claude at https://claude.ai/code, then open the brain folder in it."
+    fi
+    [ -z "${cc_script:-}" ] || rm -f "$cc_script"
   else
     echo "Claude Code is not installed yet. The brain will still be built. Get Claude Code at https://claude.ai/code, then open the brain folder and type /start."
   fi
@@ -494,17 +534,29 @@ git -c user.name="${GIT_AUTHOR_NAME:-$COMPANY}" -c user.email="${GIT_AUTHOR_EMAI
   || { echo "The first save could not be recorded, so the brain is not saved yet. Run this again, or tell OakSpin."; exit 1; }
 
 if ! git remote get-url origin >/dev/null 2>&1; then
-  if [ "$GH" = 1 ] && gh auth status >/dev/null 2>&1; then
+  if [ "$GH" = 1 ] && gh_wrong_build; then
+    say "GitHub not connected yet"
+    echo "GitHub's tool on this Mac is the Intel version. It cannot run this Mac's Git, so it cannot back up the brain."
+    echo "We fix it during your setup session. To do it yourself: install the Apple silicon version (the macOS_arm64 zip or the .pkg from https://github.com/cli/cli/releases/latest), then in the brain folder run: gh auth setup-git && gh repo create $SLUG-brain --private --source . --push"
+  elif [ "$GH" = 1 ] && gh auth status >/dev/null 2>&1; then
     say "Creating the private GitHub copy"
     if gh_out=$(gh repo create "$SLUG-brain" --private --source . --push 2>&1 >/dev/null); then
-      echo "Pushed to GitHub (private)."
-      echo "Check two-factor login is on for this GitHub account before the session ends."
+      # Every later save pushes with plain Git, which needs GitHub's login too: give it, then prove it.
+      gh auth setup-git >/dev/null 2>&1 || true
+      if git_out=$(GIT_TERMINAL_PROMPT=0 git ls-remote -q origin 2>&1 >/dev/null); then
+        echo "Pushed to GitHub (private)."
+        echo "Check two-factor login is on for this GitHub account before the session ends."
+      else
+        echo "Made the private GitHub copy, but Git on this computer could not log in to it, so later saves would stay on this computer. In the brain folder run: gh auth setup-git"
+        echo "Git said: $(last_line "$git_out")"
+      fi
     else
       case "$gh_out" in
         *"already exists"*)
           echo "Could not create the GitHub copy: this GitHub account already has a project called $SLUG-brain, maybe from an earlier try. Nothing was changed on it. The brain works on this computer; in your setup session we check that project and either connect to it or pick a new name." ;;
         *)
-          echo "Could not create the GitHub copy. The brain works locally; connect GitHub later with: gh repo create $SLUG-brain --private --source . --push" ;;
+          echo "Could not create the GitHub copy. The brain works locally; connect GitHub later with: gh repo create $SLUG-brain --private --source . --push"
+          echo "GitHub's tool said: $(last_line "$gh_out")" ;;
       esac
     fi
   else
@@ -549,7 +601,7 @@ elif [ -n "${CLAUDECODE:-}" ] || [ "${AIOS_NO_LAUNCH:-0}" = 1 ]; then
 elif need claude; then
   echo "Opening the interview."
   exec claude "/start"
-elif [ "$WINDOWS" = 1 ]; then
+elif [ "$WINDOWS" = 1 ] || { [ "$OS" = Darwin ] && claude_app; }; then
   echo "Next: open the Claude desktop app, go to its Code tab, choose the folder $(shown "$DEST"), and say hello (or type /start)."
 else
   echo "Install Claude Code, open $DEST, and type /start."

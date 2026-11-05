@@ -3,6 +3,14 @@
 One plain-English entry per engine version, newest first. The updater reads the entry for the
 version it installs and tells the owner in one line what changed.
 
+## 0.1.6
+- When this computer cannot log in to GitHub, the brain now says so and how to fix it, instead of
+  saying GitHub could not be reached. A save or session start that cannot reach GitHub gives the reason.
+- A save from a phone or cloud session is removed from GitHub only once GitHub's main line holds it.
+- A save with nothing new still backs up earlier saves and says how many went up.
+- On a Mac, setup no longer trusts an Intel build of GitHub's tool, connects Git's GitHub login when
+  it makes the private copy, and skips the Claude Code download when the Claude app is installed.
+
 ## 0.1.5
 - Nothing changes in how your brain works. OakSpin's notes about the kit are brought up to date.
 

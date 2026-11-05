@@ -24,11 +24,42 @@ aios_kit_home() {  # true when any fetch or push address of origin is the kit's 
   return 1
 }
 
-# aios_push <git push arguments>: pushes, unless origin is the kit's home.
+# aios_github_login_failure <git's error text>: true when GitHub turned this computer's login away,
+# as opposed to GitHub being out of reach. A Git with no GitHub login fails every save the same way a
+# lost connection does unless the two are told apart (Mac test, 2026-11-05).
+aios_github_login_failure() {
+  printf '%s' "$1" | grep -qiE 'could not read (username|password)|terminal prompts disabled|authentication failed|invalid username or password|permission to .* denied|returned error: 40[13]|permission denied \(publickey\)'
+}
+
+AIOS_LOGIN_FIX="GitHub did not accept this computer's login. Fix: run gh auth setup-git, then /save."
+
+# aios_github_tell <git's error text>: when it was the login, note it in AIOS_LOGIN_SEEN, say so once per
+# run (unless AIOS_LOGIN_QUIET=1: the caller's own last line says it) and return true.
+aios_github_tell() {
+  aios_github_login_failure "$1" || return 1
+  if [ "${AIOS_LOGIN_SEEN:-0}" != 1 ] && [ "${AIOS_LOGIN_QUIET:-0}" != 1 ]; then
+    echo "Saves stay on this computer until this is fixed. $AIOS_LOGIN_FIX"
+  fi
+  AIOS_LOGIN_SEEN=1
+  return 0
+}
+
+# aios_git_reason: the cause of the last failed GitHub call, for a message's brackets: Git's first
+# fatal: or error: line (it adds advice after it), else its last line.
+aios_git_reason() {
+  { printf '%s\n' "${AIOS_GIT_ERR:-}" | grep -iE -m1 '^(fatal|error):' || printf '%s\n' "${AIOS_GIT_ERR:-}" | sed '/^[[:space:]]*$/d' | tail -1; } \
+    | sed 's/^[Ff]atal: //; s/^[Ee]rror: //' | cut -c1-200
+}
+
+# aios_push <git push arguments>: pushes, unless origin is the kit's home. A failure keeps Git's own
+# words in AIOS_GIT_ERR (and on stderr), and a refused login is named.
 aios_push() {
   if aios_kit_home; then
     echo "This folder's GitHub copy is OakSpin's public kit, not your brain. Nothing was pushed. Tell OakSpin."
     return 1
   fi
-  git push "$@"
+  AIOS_GIT_ERR=$(git push "$@" 2>&1) && return 0
+  aios_github_tell "$AIOS_GIT_ERR" || true
+  printf '%s\n' "$AIOS_GIT_ERR" >&2
+  return 1
 }

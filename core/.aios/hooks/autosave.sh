@@ -17,21 +17,49 @@ fi
 AIOS_FOLD_LIB=1
 . .aios/tools/fold.sh 2>/dev/null || { aios_checked_merge() { return 2; }; aios_join_main() { return 0; }; aios_git() { git "$@"; }
   aios_fetch() { git fetch -q "$@" 2>/dev/null; }; aios_union_logs() { :; }; }
+# /save shows only the last line, so a refused login is named there, not on a line before it
+AIOS_LOGIN_QUIET=1
+[ -n "${AIOS_LOGIN_FIX:-}" ] || AIOS_LOGIN_FIX="GitHub did not accept this computer's login. Fix: run gh auth setup-git, then /save."
 # GitHub's main line moved too (a save made on GitHub itself, or on another computer): join it, checked,
 # before pushing, so the two never wait on each other. 0 go ahead and push, 1 stop (it said why).
+# A failed download leaves GitHub's line unread: github_unread=1, and nothing is counted from it.
+github_unread=0
 join_github() {
   git remote get-url origin >/dev/null 2>&1 && ! aios_kit_home || return 0
-  aios_fetch origin main || return 0
+  aios_fetch origin main || { github_unread=1; return 0; }
   aios_join_main
 }
 branch=$(git branch --show-current 2>/dev/null || echo main)
+folded_branch=""
 if [ -z "$(git status --porcelain)" ] && [ "$branch" = main ]; then
   # nothing new locally; still join GitHub's main line and push anything unpushed
   if ! join_github; then
     echo "Saved on this computer only, not yet backed up to GitHub."
     exit 0
   fi
-  git remote get-url origin >/dev/null 2>&1 && { aios_push -q origin main 2>/dev/null || true; }
+  git remote get-url origin >/dev/null 2>&1 || exit 0
+  if aios_kit_home; then aios_push -q origin main 2>/dev/null || true; exit 0; fi
+  # earlier saves that never reached GitHub go up now, and the owner hears about them. Only a line just
+  # read from GitHub is counted; when it could not be read (a new, empty copy; no login) push anyway.
+  if [ "$github_unread" = 1 ]; then
+    saves="the saves on this computer"
+  else
+    if git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
+      waiting=$(git rev-list --count origin/main..main 2>/dev/null || echo 0)
+    else
+      waiting=$(git rev-list --count main 2>/dev/null || echo 0)
+    fi
+    [ "${waiting:-0}" -gt 0 ] || exit 0
+    saves="$waiting earlier saves"; [ "$waiting" = 1 ] && saves="1 earlier save"
+  fi
+  if aios_push -q origin main 2>/dev/null; then
+    echo "Nothing new to save. Backed up $saves to GitHub."
+  elif [ "${AIOS_LOGIN_SEEN:-0}" = 1 ]; then
+    echo "Nothing new to save, but $saves may not be backed up to GitHub. $AIOS_LOGIN_FIX"
+  else
+    r=$(aios_git_reason 2>/dev/null)
+    echo "Nothing new to save, but $saves may not be backed up: could not reach GitHub${r:+ ($r)}; it will push next time."
+  fi
   exit 0
 fi
 # The pipeline page (clients/pipeline.md) is client content, so it is rebuilt before every save on every
@@ -99,7 +127,8 @@ if [ "$branch" != main ]; then
     keep_branch "It could not be folded into main automatically."
   fi
   git branch -q -D "$branch" 2>/dev/null
-  git remote get-url origin >/dev/null 2>&1 && { aios_push -q origin --delete "$branch" 2>/dev/null || true; }
+  # its copy on GitHub goes only once GitHub's main holds it (below)
+  folded_branch=$branch
 fi
 if [ "$branch" = main ] && ! join_github; then
   echo "Saved on this computer only, not yet backed up to GitHub."
@@ -109,7 +138,15 @@ if git remote get-url origin >/dev/null 2>&1; then
   if aios_kit_home; then
     echo "Saved locally. This folder's GitHub copy is OakSpin's public kit, not your brain, so nothing was pushed. Tell OakSpin."
   else
-    git push -q origin main 2>/dev/null && echo "Saved and backed up to GitHub." || echo "Saved locally. Could not reach GitHub; it will push next time."
+    if aios_push -q origin main 2>/dev/null; then
+      [ -z "$folded_branch" ] || aios_push -q origin --delete "$folded_branch" 2>/dev/null || true
+      echo "Saved and backed up to GitHub."
+    elif [ "${AIOS_LOGIN_SEEN:-0}" = 1 ]; then
+      echo "Saved on this computer only, not backed up to GitHub. $AIOS_LOGIN_FIX"
+    else
+      r=$(aios_git_reason 2>/dev/null)
+      echo "Saved locally. Could not reach GitHub${r:+ ($r)}; it will push next time."
+    fi
   fi
 else
   echo "Saved locally (no GitHub copy connected yet)."
